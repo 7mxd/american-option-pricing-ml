@@ -1,0 +1,16 @@
+﻿# Confidential data - do NOT commit
+*.csv
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS and editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.impeccable/
+
+# Documents (for my reference)
+/docs
