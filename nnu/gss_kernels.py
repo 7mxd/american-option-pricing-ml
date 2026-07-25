@@ -2,7 +2,6 @@ import math
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import tensorflow.keras.backend as K
 from timeit import default_timer as timer
 
 
@@ -19,8 +18,8 @@ def global_kernel_dict(global_scale, tf_dtype=tf.float32):
 
 def tfsinc(x, tf_dtype=tf.float32):
     eps = 1e-4
-    return tf.cast(K.abs(x) > eps, tf_dtype)*tf.math.divide_no_nan(K.sin(K.constant(math.pi)*x), K.constant(math.pi)*x) \
-        + tf.cast(K.abs(x) <= eps, tf_dtype)
+    pi = tf.constant(math.pi, dtype=tf_dtype)
+    return tf.cast(tf.abs(x) > eps, tf_dtype) * tf.math.divide_no_nan(tf.sin(pi*x), pi*x) + tf.cast(tf.abs(x) <= eps, tf_dtype)
 
 
 def sinc_kernel(freq_bound=1, tf_dtype=tf.float32):
@@ -29,20 +28,20 @@ def sinc_kernel(freq_bound=1, tf_dtype=tf.float32):
 
 def lanczos_kernel(a=2.0, freq_bound=1, tf_dtype=tf.float32):
     def lanczos_kernel_(x):
-        return tf.cast(K.abs(x) <= a, tf_dtype)*tfsinc(x, tf_dtype)*tfsinc(x/a, tf_dtype)
+        return tf.cast(tf.abs(x) <= a, tf_dtype)*tfsinc(x, tf_dtype)*tfsinc(x/a, tf_dtype)
     return lambda x: lanczos_kernel_(x*freq_bound)
 
 
 def invquad_kernel(a=2.0, freq_bound=1, tf_dtype=tf.float32):
     def invquad_kernel_(x):
         xs = (x*freq_bound/a) * 3.0/2.0
-        return K.maximum(1.15 / (1 + xs*xs/0.35)-0.15, 0.0)
+        return tf.maximum(1.15 / (1 + xs*xs/0.35)-0.15, 0.0)
     return invquad_kernel_
 
 
 def bspline1_kernel(a=2.0, freq_bound=1, tf_dtype=tf.float32):
     def bspline_1_(x):
-        return K.maximum(1 - K.abs(x/a), 0.0)
+        return tf.maximum(1 - tf.abs(x/a), 0.0)
     return lambda x: bspline_1_(x*freq_bound)
 
 

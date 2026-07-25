@@ -1,9 +1,8 @@
 import math
+import keras
 import numpy as np
 import tensorflow as tf
 from scipy import optimize
-from tensorflow import keras
-import tensorflow.keras.backend as K
 from sklearn.linear_model import Ridge
 
 
@@ -108,7 +107,7 @@ def generate_model(
 
     # Apply coordinatewise product to the output of ProdKernelLayer to get actual kernels for inputX
     kernels_at_input_x = keras.layers.Lambda(
-        lambda x: K.prod(x, axis=2),
+        lambda x: tf.reduce_prod(x, axis=2),
         name='product'
     )(per_coord_kernels_at_input_x)
 
@@ -308,7 +307,7 @@ def generate_non_regr_model(
 
     # coordniate-wise product
     model.add(keras.layers.Lambda(
-        lambda x: K.prod(x, axis=2),
+        lambda x: tf.reduce_prod(x, axis=2),
         name='product'
     ))
 
@@ -354,7 +353,7 @@ def generate_model_for_testing(
             or not use_outer_regression:
         return fit_model
 
-    output_shape = fit_model.layers[-1].output_shape
+    output_shape = fit_model.layers[-1].output.shape
     if output_shape == ():
         output_size = 1
     else:
@@ -389,7 +388,7 @@ def generate_model_for_testing(
 
     # coordniate-wise product
     test_model.add(keras.layers.Lambda(
-        lambda x: K.prod(x, axis=2),
+        lambda x: tf.reduce_prod(x, axis=2),
         name='product'
     ))
 
@@ -459,7 +458,7 @@ def generate_model_for_testing_2(
             or not use_outer_regression:
         return fit_model
 
-    output_shape = fit_model.layers[-1].output_shape
+    output_shape = fit_model.layers[-1].output.shape
     if output_shape == ():
         output_size = 1
     else:
@@ -531,7 +530,7 @@ def generate_model_for_testing_2(
 
     # coordniate-wise product
     test_model.add(keras.layers.Lambda(
-        lambda x: K.prod(x, axis=2),
+        lambda x: tf.reduce_prod(x, axis=2),
         name='product'
     ))
 

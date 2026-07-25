@@ -1,11 +1,9 @@
+import keras
 import numpy as np
-from enum import Enum
 import tensorflow as tf
-from tensorflow import keras
-import tensorflow.keras.backend as K
+from keras import activations
+from enum import Enum
 from timeit import default_timer as timer
-
-from tensorflow.keras import activations
 
 from nnu import gss_kernels as gssk
 
@@ -60,7 +58,7 @@ class ProdKernelLayer(keras.layers.Layer):
                     f'Incompatible dimensions for scales with option {self.scales_dim}, expecting {(1,1)}')
 
         self.knots = self.add_weight(
-            'knots',
+            name='knots',
             shape=[self.nknots, self.ndim],
             dtype=self.dtype,
             trainable=self.optimize_knots
@@ -71,7 +69,7 @@ class ProdKernelLayer(keras.layers.Layer):
             0]
         self.sdim = self.ndim if self.scales_dim != ScalesDim.OnlyOne else 1
         self.scales = self.add_weight(
-            'scales',
+            name='scales',
             shape=[self.n_scales_per_dim, self.sdim],
             dtype=self.dtype,
             trainable=self.optimize_scales

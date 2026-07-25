@@ -4,14 +4,13 @@ import statistics
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+import keras
 from matplotlib import cm
-from tensorflow import keras
 from functools import reduce
 from numpy import linalg as LA
 import matplotlib.pyplot as plt
 from tqdm.keras import TqdmCallback
 from timeit import default_timer as timer
-from tensorflow.python.keras.utils.layer_utils import count_params
 
 # TF-BFGS stuff from
 # https://gist.github.com/piyueh/712ec7d4540489aad2dcfb80f9a54993
@@ -498,7 +497,7 @@ def generate_results(
             plt.legend(loc='best')
             plt.show()
 
-    n_params = count_params(model.trainable_weights)
+    n_params = int(sum(np.prod(w.shape) for w in model.trainable_weights))
 
     test_model = gss_model_factory.generate_model_for_testing_2(
         model, ndim, global_scale, nodes, **model_specs,

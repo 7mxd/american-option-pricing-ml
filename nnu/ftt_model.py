@@ -1,8 +1,8 @@
 import copy
+import keras
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from tensorflow import keras
-import matplotlib.pyplot as plt
 from tqdm.keras import TqdmCallback
 from timeit import default_timer as timer
 
@@ -40,7 +40,7 @@ class FTTLayer(keras.layers.Layer):
         self.tt_cores = []
         for n, tt_core_init in enumerate(self.tt_cores_init):
             tt_core = self.add_weight(
-                f'tt_core[{n}]',
+                name=f'tt_core[{n}]',
                 shape=tt_core_init.shape,
                 dtype=self.dtype,
                 trainable=True,
