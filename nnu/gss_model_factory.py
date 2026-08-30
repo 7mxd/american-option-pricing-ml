@@ -77,14 +77,14 @@ def generate_model(
     # "sideload" inputX -- a node that always returns inputX
     xvals = keras.layers.Lambda(
         lambda _: tf.constant(inputX),
-        input_dim=fake_dim,
+        # input_dim=fake_dim,
         name='xpts'
     )(k_fake_input)
 
     # "sideload" inputY -- a node that always returns inputY
     yvals = keras.layers.Lambda(
         lambda _: tf.expand_dims(tf.constant(inputY), -1),
-        input_dim=fake_dim,
+        # input_dim=fake_dim,
         name='ypts'
     )(k_fake_input)
 
@@ -94,7 +94,7 @@ def generate_model(
     # Construct  ProdKernelLayer for inputX. Here we have some trainable parameters that will later be optimized
     # most typically scales. Nodes have been pre-set
     per_coord_kernels_at_input_x = gss_layer.ProdKernelLayer(
-        input_dim=ndim,
+        # input_dim=ndim,
         knots=nodes,
         scales=scales,
         optimize_knots=optimize_knots,
@@ -114,7 +114,7 @@ def generate_model(
     def my_lstsq(A, y, l2_regularizer=1e-8):
         A_T = tf.transpose(A)
         lhs = tf.linalg.matmul(A_T, A) + l2_regularizer * \
-            tf.linalg.eye(A.shape[1])
+            tf.linalg.eye(A.shape[1], dtype=A.dtype)
         rhs = tf.linalg.matmul(A_T, y)
         return tf.linalg.solve(lhs, rhs)
 
@@ -214,7 +214,7 @@ def generate_relu_nn_model(
 
         if n == 0:
             model.add(keras.layers.Dense(
-                input_dim=ndim,
+                # input_dim=ndim,
                 units=n_w_per_layer,
                 activation=activation,
                 name=f'dl_{n}'
@@ -295,7 +295,7 @@ def generate_non_regr_model(
 
     # our main layer
     model.add(gss_layer.ProdKernelLayer(
-        input_dim=ndim,
+        # input_dim=ndim,
         knots=nodes,
         optimize_knots=optimize_knots,
         optimize_scales=optimize_scales,
@@ -412,7 +412,7 @@ def generate_model_for_testing(
     inputY = regr_model.get_layer('ypts')(x_to_use).numpy()
     regr_knl = test_model.get_layer('product')(
         test_model.get_layer('prodkernel')(inputX)).numpy()
-    lin_regr = Ridge(alpha=1e-8, fit_intercept=False)
+    lin_regr = Ridge(alpha=l2_regularizer, fit_intercept=False)
     regr_res = lin_regr.fit(regr_knl, inputY)
     new_outer_weights = regr_res.coef_.T
 
@@ -422,6 +422,33 @@ def generate_model_for_testing(
     test_model.get_layer('final').set_weights([new_outer_weights])
 
     return test_model
+
+def _eval_regr_kernel_in_batches(test_model, inputX, batch_size):
+    '''
+    Evaluate product(prodkernel(x)) over inputX one row-block at a time.
+
+    ProdKernelLayer materialises a dense [nrows, nknots, ndim] grid, so calling it
+    on the whole of inputX at once allocates nrows*nknots*ndim*itemsize bytes (and
+    the tile/subtract/activation chain needs several such buffers live at once).
+    Chunking caps that at batch_size rows; the result is identical, only the peak
+    allocation changes. batch_size=None restores the single-shot call.
+    '''
+
+    prodkernel = test_model.get_layer('prodkernel')
+    product = test_model.get_layer('product')
+
+    nrows = inputX.shape[0]
+    if batch_size is None or batch_size >= nrows:
+        return product(prodkernel(inputX)).numpy()
+
+    regr_knl = None
+    for start in range(0, nrows, batch_size):
+        block = product(prodkernel(inputX[start:start+batch_size])).numpy()
+        if regr_knl is None:
+            regr_knl = np.empty((nrows, block.shape[1]), dtype=block.dtype)
+        regr_knl[start:start+block.shape[0]] = block
+
+    return regr_knl
 
 
 def generate_model_for_testing_2(
@@ -443,6 +470,8 @@ def generate_model_for_testing_2(
     generate_more_nodes=True,
     sim_range=4.0,
     epochs=1.0,
+    max_nodes_mult=None,      # cap node count at this × nodes.shape[0]; None = original behaviour
+    regr_batch_size=4096,     # rows per block when evaluating the kernel; None = single shot
 ):
     '''
     Create a version of the model that can be used to estimate test errors on different inputX, inputY
@@ -495,6 +524,7 @@ def generate_model_for_testing_2(
 
     # start creating a test model
     test_model = keras.Sequential()
+    test_model.add(keras.Input(shape=(ndim, )))
 
     if generate_more_nodes:
         # this needs cleaning up -- params should come from somewhere not hardcoded
@@ -505,6 +535,16 @@ def generate_model_for_testing_2(
         # for epochs>2 increase more_nnodes
         if epochs > 2:
             n_new_nodes *= epochs-1
+
+        # The //4 above keeps ~4 observations per basis function, but it also ties
+        # the node count to the sample count, so the dense [nsamples, nknots, ndim]
+        # kernel grid built below grows quadratically with nsamples. At
+        # nsamples=70318, ndim=6 the uncapped 17579 knots need 29.7GB in float32.
+        if max_nodes_mult is not None:
+            n_new_nodes = max(
+                min(int(n_new_nodes), int(max_nodes_mult * nodes.shape[0])), 
+                nodes.shape[0]
+            )
 
         new_nodes = pgen.generate_points(
             new_sim_range, n_new_nodes, ndim, "random", seed=input_seed, plot=0, min_dist=0.3)[0]
@@ -517,7 +557,7 @@ def generate_model_for_testing_2(
         new_activation = prod_kernel.activation
 
     test_model.add(gss_layer.ProdKernelLayer(
-        input_dim=ndim,
+        # input_dim=ndim,
         knots=new_nodes,
         scales=prod_kernel.scales,
         optimize_knots=prod_kernel.optimize_knots,
@@ -544,9 +584,8 @@ def generate_model_for_testing_2(
 
     test_model.build()
 
-    regr_knl = test_model.get_layer('product')(
-        test_model.get_layer('prodkernel')(inputX)).numpy()
-    lin_regr = Ridge(alpha=1e-8, fit_intercept=False)
+    regr_knl = _eval_regr_kernel_in_batches(test_model, inputX, regr_batch_size)
+    lin_regr = Ridge(alpha=l2_regularizer, fit_intercept=False)
     regr_res = lin_regr.fit(regr_knl, inputY)
     new_outer_weights = regr_res.coef_.T
 

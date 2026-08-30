@@ -84,9 +84,7 @@ class ProdKernelLayer(keras.layers.Layer):
         return (input_shape[0], self.nknots, self.ndim)
 
     def call(self, x, mask=None):
-
-        x1 = tf.tile(tf.expand_dims(x, axis=1), [1, self.nknots, 1])
-        x2 = (x1 - self.knots)*tf.tile(self.scales * self.average_slopes,
+        x2 = (x[:, None, :] - self.knots)*tf.tile(self.scales * self.average_slopes,
                                        (self.knots.shape[0]//self.n_scales_per_dim, 1))
 
         return self.activation(x2)
