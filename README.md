@@ -17,12 +17,15 @@ European option price.
 Work in progress. The goal is to apply all four methods from the reference
 implementation and compare them on identical data.
 
-| method | notebook | status |
-|---|---|---|
-| gSS, one-dimensional | `onedim_gss.ipynb` | ✅ complete |
-| fTT, via alternating least squares | `ftt_als.ipynb` | 🚧 in progress |
-| gSS, multi-dimensional | `multidim_gss.ipynb` | ⬜ not started |
-| ReLU deep neural network | `relu_dnn.ipynb` | ⬜ not started |
+| method | status |
+|---|---|
+| gSS, one-dimensional | ✅ complete — `onedim_gss.ipynb` |
+| fTT, via alternating least squares | 🚧 in progress |
+| gSS, multi-dimensional | ⬜ not started |
+| ReLU deep neural network | ⬜ not started |
+
+Each method is added to the repository once it is finished, so only the
+completed one appears here.
 
 A cross-method comparison — including naive and linear baselines — comes once
 more than one method is finished.
@@ -60,9 +63,6 @@ Configuration, selected by a `sim_range` × `nnodes` grid search:
 |---|---|
 | `data_setup.py` | loads the data and builds the train/test split and scaler. Every notebook imports it, so all methods are evaluated on identical data. |
 | `onedim_gss.ipynb` | gSS, one-dimensional |
-| `ftt_als.ipynb` | functional Tensor Train, alternating least squares |
-| `multidim_gss.ipynb` | gSS, multi-dimensional |
-| `relu_dnn.ipynb` | ReLU deep neural network |
 | `nnu/`, `tf_lbfgs/` | the altnnpub source, modified — see [Method credit](#method-credit) |
 
 ## Running
