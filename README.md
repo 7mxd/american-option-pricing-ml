@@ -1,8 +1,8 @@
 # American Option Pricing with Alternatives to Deep Neural Networks
 
 Applying the function-approximation methods from
-[altnnpub](https://github.com/piterbarg/altnnpub) — the reference implementation
-for Antonov & Piterbarg's work on alternatives to deep neural networks — to
+[altnnpub](https://github.com/piterbarg/altnnpub), the reference implementation
+for Antonov & Piterbarg's work on alternatives to deep neural networks, to
 American option pricing on real market data.
 
 **Inputs:** asset price, maturity, rate, dividend, implied volatility, and the
@@ -19,7 +19,7 @@ implementation and compare them on identical data.
 
 | method | status |
 |---|---|
-| gSS, one-dimensional | ✅ complete — `onedim_gss.ipynb` |
+| gSS, one-dimensional | ✅ complete (`onedim_gss.ipynb`) |
 | fTT, via alternating least squares | 🚧 in progress |
 | gSS, multi-dimensional | ⬜ not started |
 | ReLU deep neural network | ⬜ not started |
@@ -27,24 +27,39 @@ implementation and compare them on identical data.
 Each method is added to the repository once it is finished, so only the
 completed one appears here.
 
-A cross-method comparison — including naive and linear baselines — comes once
-more than one method is finished.
+A cross-method comparison, including naive and linear baselines, comes once more
+than one method is finished.
 
 ## Results so far
 
-**No baseline has been computed yet, so the number below cannot be interpreted on
-its own.** The European option price is itself a strong predictor of the American
-price; the two are very highly correlated. An unknown share of the accuracy comes
-from that input rather than from the method. Baselines are deferred to the
-cross-method comparison, and until then this is an internal checkpoint, not a
-claim about how well gSS works.
+**No baseline has been computed yet, so the numbers below cannot be interpreted
+on their own.** The European option price is itself a strong predictor of the
+American price; the two are very highly correlated. An unknown share of the
+accuracy comes from that input rather than from the method. Baselines are
+deferred to the cross-method comparison, and until then this is an internal
+checkpoint, not a claim about how well gSS works.
 
-With that said — gSS (one-dimensional), on a 30,137-row held-out test set:
+With that said, gSS (one-dimensional), on a 70,318-row training set and a
+30,137-row held-out test set:
 
-| metric | value |
-|---|---|
-| relative L2 — `norm(pred - actual) / norm(actual)` | 0.0032 |
-| relative MAE — `mean(abs(pred - actual)) / rms(actual)` | 0.0017 |
+| model | split | relative L2 | relative MAE |
+|---|---|---|---|
+| dense, 5,000 nodes | test | 0.0032 | 0.0017 |
+| dense, 5,000 nodes | train | 0.0027 | 0.0016 |
+| fit, 1,000 nodes | train | 0.0053 | 0.0031 |
+
+where relative L2 is `norm(pred - actual) / norm(actual)` and relative MAE is
+`mean(abs(pred - actual)) / rms(actual)`.
+
+The first two rows come from the **same** model, so the gap between them
+measures generalisation directly. It is small, and shows no sign of overfitting.
+The third row is a different, smaller approximation and is not comparable to the
+other two: the algorithm fits at 1,000 nodes and then enriches to 5,000 for
+evaluation, refitting the outer weights on the enriched basis.
+
+The residuals are not symmetric. A small fraction of test points is under-priced
+by substantially more than the typical error, with very few mispriced by as much
+in the other direction. See the residual figure in `report/results.pdf`.
 
 Configuration, selected by a `sim_range` × `nnodes` grid search:
 
@@ -63,7 +78,10 @@ Configuration, selected by a `sim_range` × `nnodes` grid search:
 |---|---|
 | `data_setup.py` | loads the data and builds the train/test split and scaler. Every notebook imports it, so all methods are evaluated on identical data. |
 | `onedim_gss.ipynb` | gSS, one-dimensional |
-| `nnu/`, `tf_lbfgs/` | the altnnpub source, modified — see [Method credit](#method-credit) |
+| `results/*.json` | metrics and configuration, written by each notebook |
+| `figures/*.pdf` | figures, written by each notebook |
+| `report/make_report.py` | renders the LaTeX results summary from the two above |
+| `nnu/`, `tf_lbfgs/` | the altnnpub source, modified. See [Method credit](#method-credit) |
 
 ## Running
 
@@ -72,9 +90,9 @@ of the others.
 
 **float64 is required.** Each notebook sets it with
 `keras.config.set_floatx("float64")` before building any layer. The outer
-regression solves normal equations whose Gram matrix is numerically singular —
-smallest eigenvalue around `-1.4e-9` — and float32 is not precise enough to make
-that solve stable.
+regression solves normal equations whose Gram matrix is numerically singular,
+with smallest eigenvalue around `-1.4e-9`, and float32 is not precise enough to
+make that solve stable.
 
 ### Memory
 
@@ -86,13 +104,34 @@ Three places in `onedim_gss.ipynb` control this. None should be changed casually
 
 | where | what | why |
 |---|---|---|
-| cells 16, 18 | `batch_size=nsamples` | The `xpts` layer side-loads the whole training set and ignores its input, so a *smaller* batch recomputes the full output per chunk and concatenates — wrong results, and more memory rather than less. |
+| cells 16, 18 | `batch_size=nsamples` | The `xpts` layer side-loads the whole training set and ignores its input, so a *smaller* batch recomputes the full output per chunk and concatenates, giving wrong results and more memory rather than less. |
 | cell 11 | chunked gradient | A `GradientTape` retains every intermediate for the backward pass, so the single-shot version exhausts memory at this node count. Accumulating squared gradients per chunk is exact, since `norm(g, axis=0)` is a per-column L2 over samples. |
 | cells 23, 26 | `max_nodes_mult`, `regr_batch_size` | Cap and block the dense test model. Both trade time for peak allocation; neither changes results. |
 
-Memory is not returned to the operating system when a cell finishes — the
-allocator pools it — so restarting the kernel is the only way to reclaim it. This
+Memory is not returned to the operating system when a cell finishes, because the
+allocator pools it, so restarting the kernel is the only way to reclaim it. This
 is expected, not a leak: the footprint reaches a high-water mark and stays flat.
+
+## Report
+
+`report/make_report.py` renders a short LaTeX summary from `results/*.json` and
+`figures/*.pdf`, both written by the notebooks. Method descriptions are static in
+the script. Nothing is parsed out of notebook output, so rewording a `print()`
+cannot break the report.
+
+```
+python report/make_report.py
+pdflatex -output-directory=report report/results.tex
+pdflatex -output-directory=report report/results.tex
+```
+
+Run from the repository root, so the figure paths resolve. The second `pdflatex`
+pass is what resolves the equation cross-references. A TeX distribution is
+required; on Windows, `winget install MiKTeX.MiKTeX`.
+
+`report/results.pdf`, `results/*.json` and `figures/*.pdf` are committed, because
+without `data_ML.csv` nobody can regenerate them. The LaTeX build artifacts
+(`.aux`, `.log`, `.out`) are not.
 
 ## Data
 

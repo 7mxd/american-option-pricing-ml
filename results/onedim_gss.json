@@ -1,0 +1,27 @@
+{
+  "method": "onedim_gss",
+  "metrics": {
+    "test_rel_l2": 0.0031712773711418743,
+    "test_rel_mae": 0.0017170668959121086,
+    "learn_rel_l2": 0.005345137501557293,
+    "learn_rel_mae": 0.003129327294880254,
+    "dense_train_rel_l2": 0.0027363022479001053,
+    "dense_train_rel_mae": 0.0015952667329629097
+  },
+  "config": {
+    "sim_range": 4,
+    "nnodes": 1000,
+    "dense_nodes": 5000,
+    "kernel": "invquad",
+    "nodes_type": "random",
+    "scale": 2.0,
+    "l2_regularizer": 1e-06,
+    "dtype": "float64",
+    "seed": 1
+  },
+  "data": {
+    "n_train": 70318,
+    "n_test": 30137,
+    "ndim": 6
+  }
+}
